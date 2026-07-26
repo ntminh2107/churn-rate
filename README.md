@@ -1,45 +1,35 @@
-# Customer churn pipeline
+# Customer Churn Demo
 
-Package này chứa toàn bộ logic được tách khỏi notebook
-`02_customer_churn_records_lightgbm.ipynb`.
+Project gồm notebook EDA/training, package ML tái sử dụng và một mini
+application Streamlit để demo dự đoán churn.
 
-## Cấu trúc
-
-```text
-pipeline/
-├── config.py                 # path, split, threshold và tuning config
-├── contracts.py              # object truyền giữa các step
-├── data.py                   # load, schema check, split 85/15
-├── features.py               # ChurnFeatureEngineer và rule audit
-├── preprocessing.py          # impute và one-hot encoder
-├── model_lightgbm.py         # LightGBM baseline/search space
-├── model_xgboost.py          # XGBoost baseline/search space
-├── model_random_forest.py    # Random Forest baseline/search space
-├── training.py               # orchestration của baseline models
-├── tuning.py                 # train-only stratified CV
-├── evaluation.py             # metrics, selection, external test
-├── importance.py             # feature importance về source column
-├── visualization.py          # toàn bộ report plots
-├── reporting.py              # bảng và kết luận cuối
-├── workflow.py               # API end-to-end không có plot
-└── run_pipeline.py           # command-line entry point
-```
-
-## Chạy
-
-Smoke test nhanh:
+## Chạy Streamlit app
 
 ```bash
-python -m pipeline.run_pipeline --quick --skip-baselines
+pip install -r requirements.txt
+streamlit run streamlit_app.py
 ```
 
-Chạy đầy đủ cùng cấu hình notebook:
+Sau đó mở `http://localhost:8501`.
 
-```bash
-python -m pipeline.run_pipeline
-```
+## Chức năng demo
 
-Notebook vẫn là report chính, nhưng các cell chỉ điều phối các hàm ở trên.
-Feature engineering và preprocessing tiếp tục được fit lại trong từng CV fold,
-`CustomerId` và các cột định danh không đi vào model.
-# churn-rate
+- Sinh một khách hàng synthetic từ phân phối train bằng random seed.
+- Cho phép chỉnh sửa toàn bộ model features trước khi dự đoán.
+- Chọn model được highlight và điều chỉnh decision threshold.
+- So sánh probability từ Tuned XGBoost, LightGBM và Random Forest.
+- Hiển thị risk signals và raw customer record.
+- EDA explorer qua dropdown: overview, churn distribution, numerical,
+  categorical, correlation và rule audit.
+- Hiển thị frozen best parameters và inference flow.
+
+App không chạy lại hyperparameter search. Ba model được fit bằng best parameters
+đã chốt trong notebook, sau đó được cache cho toàn bộ Streamlit session.
+
+## Các entry point
+
+- `streamlit_app.py`: demo application.
+- `02_customer_churn_records_lightgbm.ipynb`: tuning/evaluation report.
+- `pipeline/`: feature, model, tuning, inference và visualization modules.
+- `python -m pipeline.run_pipeline`: chạy training workflow ngoài notebook.
+
