@@ -26,10 +26,13 @@ Sau đó mở `http://localhost:8501`.
 App không chạy lại hyperparameter search. Ba model được fit bằng best parameters
 đã chốt trong notebook, sau đó được cache cho toàn bộ Streamlit session.
 
+Model sử dụng 13 cột gốc và 15 engineered features đã chọn. Tám engineered
+features có importance thấp được loại tập trung trong `PipelineConfig` để
+training, tuning và Streamlit inference luôn dùng cùng một schema.
+
 ## Các entry point
 
 - `streamlit_app.py`: demo application.
 - `02_customer_churn_records_lightgbm.ipynb`: tuning/evaluation report.
 - `pipeline/`: feature, model, tuning, inference và visualization modules.
 - `python -m pipeline.run_pipeline`: chạy training workflow ngoài notebook.
-

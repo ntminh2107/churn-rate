@@ -50,21 +50,21 @@ FROZEN_MODEL_SPECS = {
         "algorithm": "XGBoost",
         "parameters": XGBOOST_PARAMETERS,
         "builder": build_xgboost,
-        "cv_pr_auc": 0.7004,
+        "cv_pr_auc": 0.700688,
     },
     "Tuned LightGBM": {
         "family": "lightgbm",
         "algorithm": "LightGBM",
         "parameters": LIGHTGBM_PARAMETERS,
         "builder": build_lightgbm,
-        "cv_pr_auc": 0.7009,
+        "cv_pr_auc": 0.700792,
     },
     "Tuned Random Forest": {
         "family": "random_forest",
         "algorithm": "Random Forest",
         "parameters": RANDOM_FOREST_PARAMETERS,
         "builder": build_random_forest,
-        "cv_pr_auc": 0.6887,
+        "cv_pr_auc": 0.688571,
     },
 }
 
@@ -255,4 +255,3 @@ def customer_risk_signals(customer: pd.DataFrame) -> list[str]:
     if int(row["NumOfProducts"]) == 2:
         signals.append("Hai sản phẩm — tín hiệu giữ chân tích cực trong train")
     return signals
-

@@ -238,3 +238,70 @@ def evaluate_external_test(
         confusion=confusion,
     )
 
+
+def evaluate_external_models(
+    artifacts: dict[str, ModelArtifact],
+    data: DataBundle,
+    preprocessing: PreprocessingBundle,
+    threshold: float,
+    *,
+    tuned_only: bool = True,
+) -> tuple[pd.DataFrame, dict[str, ExternalEvaluation]]:
+    """Evaluate every frozen model on the same untouched external test set."""
+
+    records: list[dict[str, object]] = []
+    evaluations: dict[str, ExternalEvaluation] = {}
+
+    for model_name, artifact in artifacts.items():
+        if tuned_only and not artifact.tuned:
+            continue
+
+        probability = artifact.predict_probability(
+            preprocessing.matrices[artifact.feature_set]["test"]
+        )
+        prediction = (probability >= threshold).astype(int)
+        confusion = confusion_matrix(
+            data.y_test,
+            prediction,
+            labels=[0, 1],
+        )
+        tn, fp, fn, tp = confusion.ravel()
+        result = {
+            "Model": model_name,
+            "Algorithm": artifact.algorithm,
+            "Feature set": artifact.feature_set,
+            "Rows": len(data.y_test),
+            "Actual churn": int(data.y_test.sum()),
+            "Actual churn rate": data.y_test.mean(),
+            "Predicted churn": int(prediction.sum()),
+            "TN": int(tn),
+            "FP": int(fp),
+            "FN": int(fn),
+            "TP": int(tp),
+            **classification_metrics(
+                data.y_test,
+                probability,
+                threshold=threshold,
+            ),
+        }
+        result_frame = pd.DataFrame([result])
+        records.append(result)
+        evaluations[model_name] = ExternalEvaluation(
+            results=result_frame,
+            probability=probability,
+            prediction=prediction,
+            confusion=confusion,
+        )
+
+    if not records:
+        raise ValueError("No model artifacts are available for external evaluation.")
+
+    results = (
+        pd.DataFrame(records)
+        .sort_values(
+            ["F1", "PR-AUC", "ROC-AUC"],
+            ascending=False,
+        )
+        .reset_index(drop=True)
+    )
+    return results, evaluations

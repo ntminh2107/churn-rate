@@ -9,12 +9,12 @@ from pipeline.contracts import DataBundle, ModelArtifact, PreprocessingBundle, S
 
 
 FINAL_TUNED_PARAMETERS = {
-    "n_estimators": 800,
-    "min_samples_split": 10,
-    "min_samples_leaf": 2,
-    "max_features": "log2",
-    "max_depth": 8,
-    "class_weight": {0: 1, 1: 2},
+    "n_estimators": 1_000,
+    "min_samples_split": 5,
+    "min_samples_leaf": 4,
+    "max_features": "sqrt",
+    "max_depth": 20,
+    "class_weight": "balanced",
     "bootstrap": True,
 }
 
@@ -100,4 +100,3 @@ def train_baseline(
         preprocessing.matrices["engineered"]["validation"]
     )
     return artifact
-

@@ -98,7 +98,13 @@ def tune_models(
     for spec in make_tuning_specs(data, config):
         fold_safe_pipeline = Pipeline(
             [
-                ("features", ChurnFeatureEngineer(age_bins=config.age_bins)),
+                (
+                    "features",
+                    ChurnFeatureEngineer(
+                        age_bins=config.age_bins,
+                        dropped_features=config.dropped_engineered_features,
+                    ),
+                ),
                 (
                     "preprocessor",
                     clone(preprocessing.preprocessors["engineered"]),
@@ -185,4 +191,3 @@ def tune_models(
         .reset_index(drop=True)
     )
     return TuningResult(artifacts=artifacts, summary=summary)
-

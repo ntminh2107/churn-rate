@@ -261,6 +261,61 @@ def plot_external_evaluation(
     return fig
 
 
+def plot_external_confusion_matrices(
+    evaluations: dict[str, ExternalEvaluation],
+    threshold: float,
+    selected_model_name: str | None = None,
+) -> Figure:
+    """Show one external-test confusion matrix for each tuned model."""
+
+    model_count = len(evaluations)
+    if model_count == 0:
+        raise ValueError("No external evaluations were provided.")
+
+    fig, axes = plt.subplots(
+        1,
+        model_count,
+        figsize=(6.2 * model_count, 5.4),
+        squeeze=False,
+    )
+    for axis, (model_name, external) in zip(
+        axes.ravel(),
+        evaluations.items(),
+    ):
+        result = external.results.iloc[0]
+        selected_label = (
+            " — selected by validation"
+            if model_name == selected_model_name
+            else ""
+        )
+        sns.heatmap(
+            external.confusion,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            cbar=False,
+            square=True,
+            xticklabels=["Predicted 0", "Predicted 1"],
+            yticklabels=["Actual 0", "Actual 1"],
+            ax=axis,
+        )
+        axis.set_title(
+            f"{model_name}{selected_label}\n"
+            f"TP={int(result['TP'])} | FN={int(result['FN'])} | "
+            f"Recall={result['Recall']:.3f}"
+        )
+        axis.set_xlabel("")
+        axis.set_ylabel("")
+
+    fig.suptitle(
+        "Independent synthetic test confusion matrices "
+        f"@ threshold {threshold:.2f}",
+        fontsize=15,
+    )
+    fig.tight_layout()
+    return fig
+
+
 def plot_probability_separation(
     selection: SelectionResult,
     y_validation: pd.Series,
@@ -397,4 +452,3 @@ def plot_feature_importance(
     axis.set_xlim(0, maximum * 1.18 if maximum > 0 else 1)
     fig.tight_layout()
     return fig
-

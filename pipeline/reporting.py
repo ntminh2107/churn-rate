@@ -18,25 +18,33 @@ BASELINE_NAME_BY_ALGORITHM = {
 }
 
 
-def build_final_comparison(selection: SelectionResult) -> pd.DataFrame:
+def build_final_comparison(
+    selection: SelectionResult,
+    external_results: pd.DataFrame,
+) -> pd.DataFrame:
+    """Build the final three-model table from independent-test metrics."""
+
     columns = [
         "Model",
         "Algorithm",
-        "Imbalance strategy",
-        "CV PR-AUC mean",
-        "CV PR-AUC std",
-        "Search seconds",
-        "Best iteration",
+        "Rows",
+        "Actual churn",
+        "Predicted churn",
+        "TN",
+        "FP",
+        "FN",
+        "TP",
         "Threshold",
         "Accuracy",
         "Precision",
         "Recall",
+        "Specificity",
         "F1",
         "Balanced Accuracy",
         "ROC-AUC",
         "PR-AUC",
     ]
-    comparison = selection.ranking[columns].copy()
+    comparison = external_results[columns].copy()
     comparison.insert(
         0,
         "Selected",
@@ -44,8 +52,8 @@ def build_final_comparison(selection: SelectionResult) -> pd.DataFrame:
     )
     return (
         comparison.sort_values(
-            ["Selected", "CV PR-AUC mean"],
-            ascending=[False, False],
+            ["Selected", "F1", "PR-AUC"],
+            ascending=[False, False, False],
         )
         .reset_index(drop=True)
     )
@@ -57,6 +65,7 @@ def build_conclusion_markdown(
     validation_results: pd.DataFrame,
     selection: SelectionResult,
     external: ExternalEvaluation,
+    external_results: pd.DataFrame,
     importance: FeatureImportanceResult,
 ) -> str:
     comparison_index = validation_results.set_index("Model")
@@ -73,6 +82,10 @@ def build_conclusion_markdown(
         - selected_validation["CV PR-AUC mean"]
     )
     test_row = external.results.iloc[0]
+    external_leader = external_results.sort_values(
+        ["F1", "PR-AUC"],
+        ascending=False,
+    ).iloc[0]
     top_features = importance.source.head(8)["Source feature"].tolist()
 
     return f"""
@@ -87,9 +100,10 @@ def build_conclusion_markdown(
 - So với **{baseline_name}** chưa tuning ở cùng threshold: Precision thay đổi **{selected_validation['Precision'] - baseline_validation['Precision']:+.4f}**, Recall **{selected_validation['Recall'] - baseline_validation['Recall']:+.4f}**, F1 **{selected_validation['F1'] - baseline_validation['F1']:+.4f}**.
 - Threshold F0.5 tham chiếu từ validation: **{selection.validation_f05_threshold:.4f}**; operating threshold ưu tiên recall được cố định theo quyết định nghiệp vụ: **{selection.operating_threshold:.2f}**.
 - External test: Accuracy **{test_row['Accuracy']:.4f}**, Precision **{test_row['Precision']:.4f}**, Recall **{test_row['Recall']:.4f}**, F1 **{test_row['F1']:.4f}**, ROC-AUC **{test_row['ROC-AUC']:.4f}**, PR-AUC **{test_row['PR-AUC']:.4f}**.
+- Model có F1 cao nhất trên external test là **{external_leader['Model']}** với F1 **{external_leader['F1']:.4f}** và PR-AUC **{external_leader['PR-AUC']:.4f}**; đây chỉ là kết quả chẩn đoán cuối, không được dùng để quay lại chọn model.
 - Top source features: **{', '.join(top_features)}**.
 
-## Bảng tổng kết 3 tuned models trên validation
+## Bảng tổng kết 3 tuned models trên independent external test
 
-Các metric phụ thuộc quyết định dùng threshold **{selection.operating_threshold:.2f}**. Các model cách CV leader không quá **{config.cv_tie_tolerance:.3f}** được xem là tương đương và validation F1 được dùng để tie-break; external test không dùng để chọn model hoặc tham số.
+Toàn bộ Accuracy, Precision, Recall, Specificity, F1, Balanced Accuracy, ROC-AUC, PR-AUC và confusion counts trong bảng dưới đây được tính trên **{len(data.X_test):,} dòng của `Synthetic-Customer-Churn-Test.csv`** tại threshold **{selection.operating_threshold:.2f}**. Cột `Selected` vẫn phản ánh quyết định đã được khóa từ CV/validation; external test không dùng để chọn model hoặc tham số.
 """

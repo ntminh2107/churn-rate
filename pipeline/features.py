@@ -37,8 +37,13 @@ RULE_FEATURE_NAMES = [
 class ChurnFeatureEngineer(BaseEstimator, TransformerMixin):
     """Create domain and interaction features without learning from validation/test."""
 
-    def __init__(self, age_bins: int = 5):
+    def __init__(
+        self,
+        age_bins: int = 5,
+        dropped_features: tuple[str, ...] = (),
+    ):
         self.age_bins = age_bins
+        self.dropped_features = dropped_features
 
     @staticmethod
     def _validate_columns(frame: pd.DataFrame) -> None:
@@ -157,7 +162,15 @@ class ChurnFeatureEngineer(BaseEstimator, TransformerMixin):
             result["Point Earned"] / (result["Tenure"] + 1.0)
         )
 
-        return result
+        missing_dropped_features = sorted(
+            set(self.dropped_features) - set(result.columns)
+        )
+        if missing_dropped_features:
+            raise ValueError(
+                "Configured engineered features cannot be dropped because "
+                f"they were not created: {missing_dropped_features}"
+            )
+        return result.drop(columns=list(self.dropped_features))
 
 
 def audit_risk_rules(X_train: pd.DataFrame, y_train: pd.Series) -> pd.DataFrame:
@@ -272,7 +285,10 @@ def build_feature_bundle(
 ) -> FeatureBundle:
     """Fit feature engineering on train and transform validation/test."""
 
-    engineer = ChurnFeatureEngineer(age_bins=config.age_bins)
+    engineer = ChurnFeatureEngineer(
+        age_bins=config.age_bins,
+        dropped_features=config.dropped_engineered_features,
+    )
     train_engineered = engineer.fit_transform(data.X_train, data.y_train)
     validation_engineered = engineer.transform(data.X_validation)
     test_engineered = engineer.transform(data.X_test)
@@ -285,8 +301,23 @@ def build_feature_bundle(
     excluded = {*config.excluded_columns, config.target}
     if excluded.intersection(train_engineered.columns):
         raise AssertionError("Excluded identifiers/target leaked into engineered data.")
-    if not set(RULE_FEATURE_NAMES).issubset(train_engineered.columns):
-        raise AssertionError("One or more rule features were not created.")
+    retained_rule_feature_names = [
+        feature_name
+        for feature_name in RULE_FEATURE_NAMES
+        if feature_name not in config.dropped_engineered_features
+    ]
+    if not set(retained_rule_feature_names).issubset(
+        train_engineered.columns
+    ):
+        raise AssertionError("One or more retained rule features were not created.")
+    leaked_dropped_features = set(
+        config.dropped_engineered_features
+    ).intersection(train_engineered.columns)
+    if leaked_dropped_features:
+        raise AssertionError(
+            "Dropped engineered features leaked into the model frame: "
+            f"{sorted(leaked_dropped_features)}"
+        )
     if not (
         train_engineered.columns.tolist()
         == validation_engineered.columns.tolist()
@@ -306,11 +337,13 @@ def build_feature_bundle(
             "test": test_engineered,
         },
     }
+    selected_catalog = make_feature_catalog().loc[
+        lambda frame: frame["Feature"].isin(engineered_feature_names)
+    ].reset_index(drop=True)
     return FeatureBundle(
         engineer=engineer,
         frames=frames,
         engineered_feature_names=engineered_feature_names,
-        rule_feature_names=RULE_FEATURE_NAMES.copy(),
-        catalog=make_feature_catalog(),
+        rule_feature_names=retained_rule_feature_names,
+        catalog=selected_catalog,
     )
-

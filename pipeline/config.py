@@ -22,6 +22,16 @@ class PipelineConfig:
         "Surname",
         "Complain",
     )
+    dropped_engineered_features: tuple[str, ...] = (
+        "VeryLowCreditInactive",
+        "LowCreditShortTenureHasCard",
+        "ShortTenureUnder5",
+        "VeryLowCreditScore",
+        "LowCreditScore425",
+        "InactiveWithMultipleProducts",
+        "ZeroBalance",
+        "CardButInactive",
+    )
     validation_size: float = 0.15
     random_state: int = 42
     age_bins: int = 5
@@ -41,7 +51,10 @@ class PipelineConfig:
             raise ValueError("tuning_iterations must be positive.")
         if self.cv_splits < 2:
             raise ValueError("cv_splits must be at least 2.")
+        if len(set(self.dropped_engineered_features)) != len(
+            self.dropped_engineered_features
+        ):
+            raise ValueError("dropped_engineered_features contains duplicates.")
 
 
 DEFAULT_CONFIG = PipelineConfig()
-

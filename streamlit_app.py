@@ -321,9 +321,14 @@ APP_CSS = """
 """
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
+MODEL_BUNDLE_VERSION = "selected-features-2026-07-28"
+
 
 @st.cache_resource(show_spinner=False)
-def load_demo_bundle():
+def load_demo_bundle(bundle_version: str):
+    """Versioned cache so schema/model changes invalidate an open app."""
+
+    del bundle_version
     return train_demo_models()
 
 
@@ -523,7 +528,7 @@ def render_eda(bundle) -> None:
     if eda_option == "Tổng quan dataset":
         metric_1, metric_2, metric_3, metric_4 = st.columns(4)
         metric_1.metric("Customers", f"{len(eda_frame):,}")
-        metric_2.metric("Model features", len(bundle.data.model_columns))
+        metric_2.metric("Raw input features", len(bundle.data.model_columns))
         metric_3.metric(
             "Churn rate",
             f"{eda_frame[bundle.config.target].mean():.2%}",
@@ -746,7 +751,7 @@ st.markdown(
 )
 
 with st.spinner("Đang khởi tạo feature pipeline và ba tuned models…"):
-    demo_bundle = load_demo_bundle()
+    demo_bundle = load_demo_bundle(MODEL_BUNDLE_VERSION)
 
 
 with st.sidebar:
@@ -1058,6 +1063,12 @@ with model_tab:
             {
                 "Model": model_name,
                 "Algorithm": artifact.algorithm,
+                "Input features": demo_bundle.features.frames[
+                    artifact.feature_set
+                ]["train"].shape[1],
+                "Processed features": demo_bundle.preprocessing.matrices[
+                    artifact.feature_set
+                ]["train"].shape[1],
                 "Trees": artifact.best_iteration,
                 "Imbalance": artifact.imbalance_strategy,
                 "CV PR-AUC": artifact.cv_pr_auc_mean,
@@ -1099,9 +1110,28 @@ with model_tab:
             "không đi vào feature matrix."
         )
 
+    st.caption(
+        f"Model đang dùng {len(demo_bundle.data.model_columns)} cột gốc + "
+        f"{len(demo_bundle.features.engineered_feature_names)} engineered "
+        f"features; đã loại "
+        f"{len(demo_bundle.config.dropped_engineered_features)} engineered "
+        "features có importance thấp."
+    )
     with st.expander("Xem feature engineering catalog"):
         st.dataframe(
             demo_bundle.features.catalog,
+            width="stretch",
+            hide_index=True,
+        )
+    with st.expander("Xem engineered features đã loại"):
+        st.dataframe(
+            pd.DataFrame(
+                {
+                    "Dropped engineered feature": (
+                        demo_bundle.config.dropped_engineered_features
+                    )
+                }
+            ),
             width="stretch",
             hide_index=True,
         )
